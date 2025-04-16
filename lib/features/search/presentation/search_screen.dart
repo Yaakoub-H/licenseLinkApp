@@ -301,7 +301,7 @@ class _SearchScreenState extends State<SearchScreen> {
 
       // Send a notification to the premium user
       await MyFireBaseCloudMessaging.sendNotificationToUser(
-        premiumUserDeviceToken, // Device token of the premium user
+        premiumUserDeviceToken.toString(), // Device token of the premium user
         premiumUserId.toString(), // UID of the premium user
         context,
         'Profile Viewed',
@@ -334,8 +334,10 @@ class _SearchScreenState extends State<SearchScreen> {
           .limit(1)
           .single()
           .then(
-            (response) =>
-                _logSearchForPremiumUser(result['id'], response['token']),
+            (response) => _logSearchForPremiumUser(
+              result['id'].toString(),
+              response['token'].toString(),
+            ),
           )
           .catchError((error) => print('Error fetching device token: $error'));
     }
