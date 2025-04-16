@@ -1,19 +1,17 @@
-import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:responsive_sizer/responsive_sizer.dart';
 import 'package:go_router/go_router.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../provider/auth_provider.dart';
 
-class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+class AdminLoginScreen extends StatefulWidget {
+  const AdminLoginScreen({super.key});
 
   @override
-  _LoginScreenState createState() => _LoginScreenState();
+  _AdminLoginScreenState createState() => _AdminLoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _AdminLoginScreenState extends State<AdminLoginScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   bool _isLoading = false;
@@ -25,43 +23,45 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  Future<void> _login() async {
-    setState(() => _isLoading = true);
+  Future<void> _adminLoginOrSignup() async {
+    setState(() {
+      _isLoading = true;
+    });
 
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      final role = await authProvider.loginUser(
+
+      // Check if user exists in admins table before login
+      final isAdminRegistered = await authProvider.isEmailInAdminsTable(
+        _emailController.text.trim(),
+      );
+
+      if (!isAdminRegistered) {
+        throw Exception('This email is not registered as an admin.');
+      }
+
+      // Try to log in the user
+      await authProvider.loginAdmin(
         _emailController.text.trim(),
         _passwordController.text.trim(),
       );
 
-      final session = Supabase.instance.client.auth.currentSession;
-      if (session == null) {
-        throw Exception("Supabase session is still null after login.");
+      // Navigate if authenticated and still admin
+      if (authProvider.isAdmin) {
+        context.go('/admin');
+      } else {
+        throw Exception(
+          'You are not authorized to access the admin dashboard.',
+        );
       }
-
-      if (!mounted) return;
-
-      // ✅ Safely navigate after the current frame
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-
-        if (role == 'admin') {
-          context.go('/admin');
-        } else {
-          context.go('/home');
-        }
-      });
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(e.toString())));
-      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
     } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 
@@ -79,13 +79,17 @@ class _LoginScreenState extends State<LoginScreen> {
               CircleAvatar(
                 radius: 8.h,
                 backgroundColor: const Color(0xFF3D5CFF),
-                child: Icon(Icons.car_rental, size: 8.h, color: Colors.white),
+                child: Icon(
+                  Icons.admin_panel_settings,
+                  size: 8.h,
+                  color: Colors.white,
+                ),
               ),
               SizedBox(height: 4.h),
 
               // Welcome Text
               Text(
-                'Welcome Back!',
+                'Admin Login',
                 style: TextStyle(
                   fontSize: 22.sp,
                   fontWeight: FontWeight.bold,
@@ -94,7 +98,7 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               SizedBox(height: 1.h),
               Text(
-                'Login to continue',
+                'Enter your admin credentials',
                 style: TextStyle(fontSize: 16.sp, color: Colors.grey[400]),
               ),
               SizedBox(height: 4.h),
@@ -136,7 +140,7 @@ class _LoginScreenState extends State<LoginScreen> {
               _isLoading
                   ? const CircularProgressIndicator()
                   : ElevatedButton(
-                    onPressed: _login,
+                    onPressed: _adminLoginOrSignup,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF3D5CFF),
                       padding: EdgeInsets.symmetric(
@@ -151,17 +155,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: const Text('Login'),
                   ),
               SizedBox(height: 2.h),
-
-              // Sign Up Redirect
-              TextButton(
-                onPressed: () {
-                  context.go('/signup'); // Navigate to the signup screen
-                },
-                child: Text(
-                  'Don’t have an account? Sign Up',
-                  style: TextStyle(fontSize: 16.sp, color: Colors.white),
-                ),
-              ),
             ],
           ),
         ),
