@@ -44,6 +44,7 @@ dependencies:
   package_info_plus: ^8.2.1
   url_launcher: ^6.2.5
 
+  flutter_stripe: ^9.5.0
 
 dev_dependencies:
   flutter_test:

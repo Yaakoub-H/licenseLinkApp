@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class ChatScreen extends StatefulWidget {
   final String participantName; // Name of the chat participant
@@ -219,6 +220,34 @@ class _ChatScreenState extends State<ChatScreen> {
       backgroundColor: const Color(0xFF1F1F39),
       appBar: AppBar(
         backgroundColor: const Color(0xFF3D5CFF),
+        actions: [
+          if (_isPremium == true)
+            FutureBuilder<Map<String, dynamic>?>(
+              future: _fetchParticipantDetails(),
+              builder: (context, snapshot) {
+                if (snapshot.hasData && snapshot.data != null) {
+                  final phoneNumber = snapshot.data!['phone'];
+                  return IconButton(
+                    icon: const Icon(Icons.call, color: Colors.white),
+                    onPressed: () async {
+                      final uri = Uri.parse('tel:$phoneNumber');
+                      if (await canLaunchUrl(uri)) {
+                        await launchUrl(uri);
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Could not launch phone dialer'),
+                          ),
+                        );
+                      }
+                    },
+                  );
+                }
+                return const SizedBox.shrink();
+              },
+            ),
+        ],
+
         title: FutureBuilder<Map<String, dynamic>?>(
           future: _fetchParticipantDetails(),
           builder: (context, snapshot) {
