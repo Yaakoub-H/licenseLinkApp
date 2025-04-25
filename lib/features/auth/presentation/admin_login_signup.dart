@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:responsive_sizer/responsive_sizer.dart';
 import 'package:go_router/go_router.dart';
-import '../provider/auth_provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AdminLoginScreen extends StatefulWidget {
   const AdminLoginScreen({super.key});
@@ -15,6 +14,8 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   bool _isLoading = false;
+
+  final SupabaseClient _supabase = Supabase.instance.client;
 
   @override
   void dispose() {
@@ -29,31 +30,35 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
     });
 
     try {
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final email = _emailController.text.trim();
+      final password = _passwordController.text.trim();
 
-      // Check if user exists in admins table before login
-      final isAdminRegistered = await authProvider.isEmailInAdminsTable(
-        _emailController.text.trim(),
-      );
+      // Check if email is in admins table
+      final adminRecord =
+          await _supabase
+              .from('admins')
+              .select()
+              .eq('email', email)
+              .maybeSingle();
 
-      if (!isAdminRegistered) {
+      if (adminRecord == null) {
         throw Exception('This email is not registered as an admin.');
       }
 
-      // Try to log in the user
-      await authProvider.loginAdmin(
-        _emailController.text.trim(),
-        _passwordController.text.trim(),
+      // Attempt login
+      final response = await _supabase.auth.signInWithPassword(
+        email: email,
+        password: password,
       );
 
-      // Navigate if authenticated and still admin
-      if (authProvider.isAdmin) {
-        context.go('/admin');
-      } else {
-        throw Exception(
-          'You are not authorized to access the admin dashboard.',
-        );
+      if (response.session == null) {
+        throw Exception('Login failed: Invalid credentials.');
       }
+
+      // Delay navigation until frame completes to avoid router rebuild conflict
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        context.go('/admin');
+      });
     } catch (e) {
       ScaffoldMessenger.of(
         context,
@@ -75,7 +80,6 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // App Logo
               CircleAvatar(
                 radius: 8.h,
                 backgroundColor: const Color(0xFF3D5CFF),
@@ -86,8 +90,6 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                 ),
               ),
               SizedBox(height: 4.h),
-
-              // Welcome Text
               Text(
                 'Admin Login',
                 style: TextStyle(
@@ -102,8 +104,6 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                 style: TextStyle(fontSize: 16.sp, color: Colors.grey[400]),
               ),
               SizedBox(height: 4.h),
-
-              // Email Input Field
               TextField(
                 controller: _emailController,
                 decoration: InputDecoration(
@@ -118,8 +118,6 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                 ),
               ),
               SizedBox(height: 2.h),
-
-              // Password Input Field
               TextField(
                 controller: _passwordController,
                 obscureText: true,
@@ -135,8 +133,6 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                 ),
               ),
               SizedBox(height: 4.h),
-
-              // Login Button
               _isLoading
                   ? const CircularProgressIndicator()
                   : ElevatedButton(

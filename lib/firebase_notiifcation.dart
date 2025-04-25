@@ -48,7 +48,7 @@ class MyFireBaseCloudMessaging {
     String description,
     String notificationID,
   ) async {
-    print('yaakoub:response: $deviceToken');
+    print('response: $deviceToken');
 
     final String serverKey = await getAccessToken();
     final postUrl =

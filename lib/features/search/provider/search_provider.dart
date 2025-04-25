@@ -20,17 +20,45 @@ class SearchProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final response =
+      final currentUser = _supabase.auth.currentUser;
+      if (currentUser == null) {
+        _searchResult = {'error': 'No user is logged in.'};
+        notifyListeners();
+        return;
+      }
+
+      final userResponse =
           await _supabase
               .from('users')
-              .select()
-              .eq('plate_number', plateNumber)
-              .maybeSingle();
+              .select('plate_number')
+              .eq('email', currentUser.email!)
+              .single();
 
-      if (response != null) {
-        _searchResult = response;
+      if (userResponse != null) {
+        final currentUserPlateNumber = userResponse['plate_number'];
+
+        // Now check if the plate number matches the logged-in user's plate
+        if (plateNumber == currentUserPlateNumber) {
+          _searchResult = {
+            'message': 'This is your plate number!',
+            'plate_number': currentUserPlateNumber,
+          };
+        } else {
+          final response =
+              await _supabase
+                  .from('users')
+                  .select()
+                  .eq('plate_number', plateNumber)
+                  .maybeSingle();
+
+          if (response != null) {
+            _searchResult = response;
+          } else {
+            _searchResult = {'error': 'No user found with this plate number.'};
+          }
+        }
       } else {
-        _searchResult = {'error': 'No user found with this plate number.'};
+        _searchResult = {'error': 'User data not found for logged-in user.'};
       }
     } catch (e) {
       _searchResult = {'error': 'Error searching for user: $e'};

@@ -4,23 +4,12 @@
 
 list(APPEND FLUTTER_PLUGIN_LIST
   app_links
-  battery_plus
   cloud_firestore
-  connectivity_plus
-  desktop_drop
   file_selector_windows
   firebase_auth
   firebase_core
   firebase_storage
-  gal
-  media_kit_video
-  permission_handler_windows
-  record_windows
-  share_plus
-  stream_webrtc_flutter
-  thumblr_windows
   url_launcher_windows
-  volume_controller
 )
 
 list(APPEND FLUTTER_FFI_PLUGIN_LIST

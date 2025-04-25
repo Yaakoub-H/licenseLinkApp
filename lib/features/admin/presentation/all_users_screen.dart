@@ -41,7 +41,7 @@ class _AllUsersScreenState extends State<AllUsersScreen> {
       await _supabase.from('users').delete().eq('id', userId);
 
       setState(() {
-        _users.removeWhere((u) => u['id'] == userId);
+        _users.removeWhere((u) => u['id'].toString() == userId);
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -226,7 +226,8 @@ class _AllUsersScreenState extends State<AllUsersScreen> {
                                   Icons.delete,
                                   color: Colors.redAccent,
                                 ),
-                                onPressed: () => _deleteUser(user['id']),
+                                onPressed:
+                                    () => _deleteUser(user['id'].toString()),
                               ),
                             ],
                           ),

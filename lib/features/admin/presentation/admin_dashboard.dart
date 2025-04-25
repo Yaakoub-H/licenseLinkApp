@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:license_link/features/admin/presentation/all_users_screen.dart';
+import 'package:license_link/features/auth/presentation/login_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:responsive_sizer/responsive_sizer.dart';
 
@@ -151,7 +152,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       try {
         await Supabase.instance.client.auth.signOut();
         if (context.mounted) {
-          context.go('/'); // Adjust path to your actual login route
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const LoginScreen()),
+          );
         }
       } catch (e) {
         if (context.mounted) {

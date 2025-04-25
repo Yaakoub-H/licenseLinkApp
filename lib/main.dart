@@ -3,18 +3,20 @@ import 'dart:async';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
+import 'package:license_link/features/auth/presentation/login_screen.dart';
+import 'package:license_link/features/auth/presentation/welcome_screen.dart';
+import 'package:license_link/features/auth/provider/auth_provider.dart';
+import 'package:license_link/features/admin/presentation/admin_dashboard.dart';
+import 'package:license_link/features/search/presentation/home_screen.dart';
 import 'package:license_link/features/search/provider/search_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:responsive_sizer/responsive_sizer.dart';
-import 'core/navigation/app_router.dart';
-import 'features/auth/provider/auth_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
 
-  // Initialize Supabase
   await Supabase.initialize(
     url: 'https://butdwieaxeiilizxbapr.supabase.co',
     anonKey:
@@ -23,11 +25,6 @@ void main() async {
   Stripe.publishableKey =
       'pk_test_51RFHWPCDM8fzj1LXYCBb7mOOZUNeSmhbbaAoond1dEBBZG1W18TP5DEzHuUykrT1Cju1xlrnxCzKsWv55KOtuxSq00zpDSqs2h';
 
-  // Periodically check for expired calls
-  // Timer.periodic(const Duration(seconds: 30), (timer) {
-  //   final authProvider = AuthProvider(); d
-  //   authProvider.checkForExpiredInvites();
-  // });
   runApp(
     MultiProvider(
       providers: [
@@ -39,14 +36,27 @@ void main() async {
   );
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  Future<Widget>? _initialScreen;
+
+  @override
+  void initState() {
+    super.initState();
+    _initialScreen = _checkSession();
+  }
 
   @override
   Widget build(BuildContext context) {
     return ResponsiveSizer(
       builder: (context, orientation, screenType) {
-        return MaterialApp.router(
+        return MaterialApp(
           title: 'LicenseLink',
           debugShowCheckedModeBanner: false,
           theme: ThemeData(
@@ -57,9 +67,38 @@ class MyApp extends StatelessWidget {
             ),
             useMaterial3: true,
           ),
-          routerConfig: appRouter,
+          home: FutureBuilder(
+            future: _initialScreen,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              } else if (snapshot.hasError) {
+                return const LoginScreen();
+              } else {
+                return snapshot.data as Widget;
+              }
+            },
+          ),
         );
       },
     );
+  }
+
+  Future<Widget> _checkSession() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final session = Supabase.instance.client.auth.currentSession;
+
+    if (session != null) {
+      final email = session.user?.email;
+      if (email != null) {
+        final isAdmin = await authProvider.isEmailInAdminsTable(email);
+        if (isAdmin) {
+          return const AdminDashboardScreen();
+        } else {
+          return const HomeScreen();
+        }
+      }
+    }
+    return const WelcomePageOne();
   }
 }

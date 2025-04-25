@@ -1,9 +1,13 @@
+import 'package:bcrypt/bcrypt.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+import 'package:license_link/features/admin/presentation/admin_dashboard.dart';
+import 'package:license_link/features/auth/presentation/signup_screen.dart';
+import 'package:license_link/features/search/presentation/home_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:responsive_sizer/responsive_sizer.dart';
-import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
 import '../provider/auth_provider.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -29,34 +33,92 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      final role = await authProvider.loginUser(
-        _emailController.text.trim(),
-        _passwordController.text.trim(),
-      );
+      final email = _emailController.text.trim();
+      final password = _passwordController.text.trim();
+      final client = Supabase.instance.client;
 
-      final session = Supabase.instance.client.auth.currentSession;
-      if (session == null) {
-        throw Exception("Supabase session is still null after login.");
+      // ✅ 1. Check if user is an admin
+      final admin =
+          await client
+              .from('admins')
+              .select('id')
+              .eq('email', email)
+              .maybeSingle();
+
+      if (admin != null) {
+        final response = await client.auth.signInWithPassword(
+          email: email,
+          password: password,
+        );
+        if (response.session == null) {
+          throw Exception('Invalid admin credentials.');
+        }
+
+        // ✅ Save device token for admin
+        // final adminId = admin['id'];
+        // await Provider.of<AuthProvider>(context, listen: false)
+        //     .saveDeviceToken(adminId);
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const AdminDashboardScreen()),
+        );
+        return;
       }
 
-      if (!mounted) return;
+      // ✅ 2. Check if user exists
+      final user =
+          await client
+              .from('users')
+              .select('id, password')
+              .eq('email', email)
+              .maybeSingle();
 
-      // ✅ Safely navigate after the current frame
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
+      if (user != null) {
+        final storedHashed = user['password'];
+        final isValid = BCrypt.checkpw(password, storedHashed);
 
-        if (role == 'admin') {
-          context.go('/admin');
-        } else {
-          context.go('/home');
+        if (!isValid) {
+          throw Exception('Incorrect password.');
         }
-      });
+
+        try {
+          await client.auth.signUp(email: email, password: password);
+        } catch (e) {
+          if (!e.toString().contains("User already registered")) {
+            rethrow;
+          }
+        }
+
+        // ✅ Now login via Supabase Auth
+        final response = await client.auth.signInWithPassword(
+          email: email,
+          password: password,
+        );
+
+        if (response.session == null) {
+          throw Exception('Authentication failed.');
+        }
+
+        final userId = user['id'];
+        await Provider.of<AuthProvider>(
+          context,
+          listen: false,
+        ).saveDeviceToken(userId);
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const HomeScreen()),
+        );
+        return;
+      }
+
+      throw Exception('No account found for this email.');
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text(e.toString())));
+        ).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
       }
     } finally {
       if (mounted) {
@@ -75,15 +137,12 @@ class _LoginScreenState extends State<LoginScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // App Logo
               CircleAvatar(
                 radius: 8.h,
                 backgroundColor: const Color(0xFF3D5CFF),
                 child: Icon(Icons.car_rental, size: 8.h, color: Colors.white),
               ),
               SizedBox(height: 4.h),
-
-              // Welcome Text
               Text(
                 'Welcome Back!',
                 style: TextStyle(
@@ -98,8 +157,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 style: TextStyle(fontSize: 16.sp, color: Colors.grey[400]),
               ),
               SizedBox(height: 4.h),
-
-              // Email Input Field
               TextField(
                 controller: _emailController,
                 decoration: InputDecoration(
@@ -114,8 +171,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
               SizedBox(height: 2.h),
-
-              // Password Input Field
               TextField(
                 controller: _passwordController,
                 obscureText: true,
@@ -131,8 +186,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
               SizedBox(height: 4.h),
-
-              // Login Button
               _isLoading
                   ? const CircularProgressIndicator()
                   : ElevatedButton(
@@ -151,11 +204,12 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: const Text('Login'),
                   ),
               SizedBox(height: 2.h),
-
-              // Sign Up Redirect
               TextButton(
                 onPressed: () {
-                  context.go('/signup'); // Navigate to the signup screen
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const SignUpScreen()),
+                  );
                 },
                 child: Text(
                   'Don’t have an account? Sign Up',

@@ -19,6 +19,8 @@ class _SearchScreenState extends State<SearchScreen> {
   String? _fullName;
   bool _isLoadingUser = true;
   String? _currentUserId; // Store the user's ID from the database
+  String? _userPlateNumber; // To store the logged-in user's plate number
+  int _searchCountToday = 0;
 
   bool _isPremium = false;
 
@@ -38,7 +40,7 @@ class _SearchScreenState extends State<SearchScreen> {
       final response =
           await _supabase
               .from('users')
-              .select('id,full_name, is_premium')
+              .select('id,full_name, plate_number, is_premium')
               .eq('email', user.email!)
               .single();
 
@@ -49,9 +51,16 @@ class _SearchScreenState extends State<SearchScreen> {
       setState(() {
         _fullName = response['full_name'];
         _currentUserId = response['id'].toString();
+        _userPlateNumber = response['plate_number'];
+        print('User Plate Number: $_userPlateNumber');
+
         _isPremium = response['is_premium'] ?? false;
         _isLoadingUser = false;
       });
+      if (!_isPremium) {
+        // If non-premium user, check today's search limit
+        await _checkNonPremiumSearchLimit();
+      }
     } catch (e) {
       print('Error fetching logged user: $e');
       setState(() {
@@ -60,30 +69,37 @@ class _SearchScreenState extends State<SearchScreen> {
     }
   }
 
-  Future<void> _enablePremium() async {
+  Future<void> _checkNonPremiumSearchLimit() async {
     try {
-      final user = _supabase.auth.currentUser;
-      if (user == null) {
-        throw Exception('No user is logged in');
-      }
-
-      await _supabase
-          .from('users')
-          .update({'is_premium': true})
-          .eq('email', user.email!);
+      final response =
+          await _supabase
+              .from('non_premium_search_logs')
+              .select('count')
+              .eq('user_id', _currentUserId!)
+              .gte(
+                'search_date',
+                DateTime.now().subtract(Duration(days: 1)).toIso8601String(),
+              )
+              .single();
 
       setState(() {
-        _isPremium = true;
+        _searchCountToday = response['count'] ?? 0;
       });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('You are now a premium user!')),
-      );
     } catch (e) {
-      print('Error enabling premium: $e');
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error enabling premium: $e')));
+      print('Error checking search limit: $e');
+    }
+  }
+
+  Future<void> _logNonPremiumSearch() async {
+    try {
+      await _supabase.from('non_premium_search_logs').insert({
+        'user_id': _currentUserId,
+        'search_date': DateTime.now().toIso8601String(),
+      });
+      // After logging the search, refresh the count
+      await _checkNonPremiumSearchLimit();
+    } catch (e) {
+      print('Error logging search for non-premium user: $e');
     }
   }
 
@@ -134,7 +150,7 @@ class _SearchScreenState extends State<SearchScreen> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    TextField(
+                    TextFormField(
                       controller: plateNumberController,
                       style: const TextStyle(color: Colors.black),
                       decoration: InputDecoration(
@@ -150,17 +166,35 @@ class _SearchScreenState extends State<SearchScreen> {
                           borderRadius: BorderRadius.circular(12),
                           borderSide: BorderSide.none,
                         ),
+                        labelText: 'Enter Plate Number',
+                        labelStyle: const TextStyle(color: Colors.black),
                       ),
                     ),
+                    const SizedBox(height: 20),
+
+                    // Check if the plate searched is the user's plate
                     const SizedBox(height: 20),
                     Row(
                       children: [
                         Expanded(
                           child: ElevatedButton.icon(
                             onPressed: () {
+                              if (!_isPremium && _searchCountToday >= 3) {
+                                showSearchLimitDialog(context);
+                                return;
+                              }
+
                               final plate = plateNumberController.text.trim();
                               if (plate.isNotEmpty) {
+                                print('User Plate Number: $_userPlateNumber');
+                                print(
+                                  'Entered Plate Number: ${plateNumberController.text.trim()}',
+                                );
                                 searchProvider.searchByPlateNumber(plate);
+
+                                if (!_isPremium) {
+                                  _logNonPremiumSearch();
+                                }
                               } else {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
@@ -171,6 +205,7 @@ class _SearchScreenState extends State<SearchScreen> {
                                 );
                               }
                             },
+
                             icon: const Icon(Icons.search),
                             label: const Text('Search'),
                             style: ElevatedButton.styleFrom(
@@ -210,12 +245,52 @@ class _SearchScreenState extends State<SearchScreen> {
                       const Center(
                         child: CircularProgressIndicator(color: Colors.white),
                       ),
+
+                    const SizedBox(height: 20),
                     if (!searchProvider.isLoading &&
                         searchProvider.searchResult != null) ...[
-                      _buildSearchResult(context, searchProvider.searchResult!),
+                      // Check if there's a message indicating the plate is the user's own
+                      if (searchProvider.searchResult!.containsKey(
+                        'message',
+                      )) ...[
+                        Center(
+                          child: Container(
+                            padding: const EdgeInsets.all(20),
+                            margin: const EdgeInsets.symmetric(vertical: 10),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [Colors.greenAccent, Colors.green],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.1),
+                                  spreadRadius: 2,
+                                  blurRadius: 10,
+                                ),
+                              ],
+                            ),
+                            child: Text(
+                              searchProvider.searchResult!['message'],
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ] else ...[
+                        // Normal search result
+                        _buildSearchResult(
+                          context,
+                          searchProvider.searchResult!,
+                        ),
+                      ],
                       const SizedBox(height: 30),
                     ],
-
                     if (_isPremium)
                       Column(
                         children: [
@@ -266,6 +341,48 @@ class _SearchScreenState extends State<SearchScreen> {
     );
   }
 
+  void showSearchLimitDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: Color(
+            0xFF2A2A2A,
+          ), // Dark background for a modern look
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15), // Rounded corners
+          ),
+          title: Text(
+            'Daily Search Limit Reached',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: Text(
+            'You have reached your daily search limit.',
+            style: TextStyle(color: Colors.white, fontSize: 16),
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Close the dialog
+              },
+              child: Text(
+                'Close',
+                style: TextStyle(
+                  color: Colors.blueAccent, // Accent color for the button
+                  fontSize: 16,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Future<void> _logSearchForPremiumUser(
     String premiumUserId,
     String premiumUserDeviceToken,
@@ -275,6 +392,12 @@ class _SearchScreenState extends State<SearchScreen> {
       if (user == null) {
         throw Exception('No user is logged in');
       }
+      final response =
+          await _supabase
+              .from('users')
+              .select('full_name')
+              .eq('email', user.email.toString())
+              .single();
 
       print('Device Token: $premiumUserDeviceToken');
 
@@ -299,14 +422,13 @@ class _SearchScreenState extends State<SearchScreen> {
               .eq('id', premiumUserId)
               .single();
 
-      // Send a notification to the premium user
       await MyFireBaseCloudMessaging.sendNotificationToUser(
-        premiumUserDeviceToken.toString(), // Device token of the premium user
-        premiumUserId.toString(), // UID of the premium user
+        premiumUserDeviceToken.toString(),
+        premiumUserId.toString(),
         context,
         'Profile Viewed',
-        '${responseU['full_name']} has searched for your car plate!',
-        'search_notification_${DateTime.now().millisecondsSinceEpoch}', // Unique notification ID
+        '${response['full_name']} has searched for your car plate!',
+        'search_notification_${DateTime.now().millisecondsSinceEpoch}',
       );
     } catch (e) {
       print('Error logging search or sending notification: $e');
@@ -342,57 +464,100 @@ class _SearchScreenState extends State<SearchScreen> {
           .catchError((error) => print('Error fetching device token: $error'));
     }
 
-    return GestureDetector(
-      onTap:
-          () => Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder:
-                  (context) => ChatScreen(
-                    participantName: searchData.fullName,
-                    participantId: result['id'].toString(),
-                  ),
+    return Center(
+      child: Container(
+        padding: const EdgeInsets.all(15),
+        margin: const EdgeInsets.symmetric(vertical: 10),
+        width:
+            MediaQuery.of(context).size.width *
+            0.9, // Make it take most of the width
+        decoration: BoxDecoration(
+          color: Colors.blue.withOpacity(
+            0.4,
+          ), // Transparent background with blue
+          borderRadius: BorderRadius.circular(25), // Rounded edges
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              spreadRadius: 3,
+              blurRadius: 8, // Added more blur for a modern effect
             ),
-          ),
-      child: Center(
-        child: Container(
-          width: MediaQuery.of(context).size.width * 0.5,
-          height: MediaQuery.of(context).size.height * 0.2,
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Colors.blue, Color.fromARGB(255, 39, 135, 176)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.all(Radius.circular(16)),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Text(
-                  searchData.fullName,
-                  style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                if (_isPremium)
+          ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center, // Center the row content
+          children: [
+            // Icon for visual appeal
+            Icon(Icons.directions_car_filled, color: Colors.white, size: 40),
+            const SizedBox(width: 16), // Spacing between icon and text
+            // Main content
+            Expanded(
+              child: Column(
+                crossAxisAlignment:
+                    CrossAxisAlignment.center, // Center the text horizontally
+                mainAxisAlignment:
+                    MainAxisAlignment.center, // Center the content vertically
+                children: [
                   Text(
-                    'Phone: ${result['phone']}',
-                    style: const TextStyle(
-                      fontSize: 18,
+                    searchData.fullName,
+                    style: TextStyle(
+                      fontSize: 22,
                       fontWeight: FontWeight.bold,
-                      color: Colors.yellowAccent,
+                      color: Colors.white,
+                      letterSpacing: 1.2,
                     ),
                   ),
-              ],
+                  const SizedBox(height: 5),
+                  if (_isPremium)
+                    Text(
+                      'Phone: ${result['phone']}',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.yellowAccent,
+                      ),
+                    ),
+                  const SizedBox(height: 10),
+                  // Button styled text
+                  GestureDetector(
+                    onTap: () {
+                      // Navigate to chat screen or any action you want here
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder:
+                              (context) => ChatScreen(
+                                participantName: searchData.fullName,
+                                participantId: result['id'].toString(),
+                              ),
+                        ),
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 8,
+                        horizontal: 18,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(
+                          0.3,
+                        ), // Transparent background
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Text(
+                        'Click to Chat',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
+          ],
         ),
       ),
     );

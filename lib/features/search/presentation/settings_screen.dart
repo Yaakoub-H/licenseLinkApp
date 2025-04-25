@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:license_link/features/auth/presentation/login_screen.dart';
 import 'package:license_link/features/premium/presentation/payment_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -32,7 +33,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final response =
           await _supabase
               .from('users')
-              .select('id, full_name, email, is_premium')
+              .select('id, full_name, email, plate_number, is_premium')
               .eq('email', currentUser.email!)
               .single();
 
@@ -135,9 +136,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     try {
       await _supabase.auth.signOut();
 
-      if (context.mounted) {
-        context.go('/'); // Correct way with GoRouter
-      }
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+      );
     } catch (e) {
       print('Error logging out: $e');
       ScaffoldMessenger.of(
@@ -211,9 +213,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                     const SizedBox(height: 16),
                     _buildInfoCard(
-                      icon: Icons.perm_identity,
-                      title: 'User ID',
-                      value: _userData!['id'].toString(),
+                      icon: Icons.directions_car,
+                      title: 'Plate Number',
+                      value: _userData!['plate_number'],
                     ),
                     const SizedBox(height: 20),
                     if (!(_userData!['is_premium'] ?? false))

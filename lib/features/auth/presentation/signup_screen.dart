@@ -1,6 +1,8 @@
 import 'dart:io';
-
+import 'dart:convert';
+import 'package:bcrypt/bcrypt.dart';
 import 'package:flutter/material.dart';
+import 'package:license_link/features/auth/presentation/login_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:responsive_sizer/responsive_sizer.dart';
 import 'package:go_router/go_router.dart';
@@ -21,6 +23,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _fullNameController = TextEditingController();
   final TextEditingController _plateNumberController = TextEditingController();
+  final TextEditingController _confirmPasswordController =
+      TextEditingController();
   String? _vehicleRegistrationCardPath; // Path to the uploaded file
   bool _isLoading = false;
 
@@ -31,6 +35,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
     _phoneController.dispose();
     _fullNameController.dispose();
     _plateNumberController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
   }
 
@@ -113,11 +118,13 @@ class _SignUpScreenState extends State<SignUpScreen> {
         _phoneController.text.isEmpty ||
         _fullNameController.text.isEmpty ||
         _plateNumberController.text.isEmpty ||
-        _vehicleRegistrationCardPath == null) {
+        _vehicleRegistrationCardPath == null ||
+        _passwordController.text != _confirmPasswordController.text ||
+        !_phoneController.text.startsWith('+961')) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'Please fill all fields and upload the vehicle registration card.',
+            'Please fill all fields, ensure passwords match, and phone number starts with +961.',
           ),
         ),
       );
@@ -138,14 +145,18 @@ class _SignUpScreenState extends State<SignUpScreen> {
         throw Exception('Failed to upload vehicle registration card.');
       }
 
-      // Add the user's details to the pending_users table
+      final hashedPassword = BCrypt.hashpw(
+        _passwordController.text,
+        BCrypt.gensalt(),
+      );
+
       await _addToPendingUsers(
         _emailController.text,
         _phoneController.text,
         _fullNameController.text,
         _plateNumberController.text,
         publicUrl,
-        _passwordController.text, // Pass the password
+        hashedPassword, // Store this hashed password
       );
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -154,7 +165,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
         ),
       );
 
-      context.go('/'); // Navigate to the login screen
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+      );
     } catch (e) {
       ScaffoldMessenger.of(
         context,
@@ -196,7 +210,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
               SizedBox(height: 1.h),
               Text(
                 'Sign up to get started',
-                style: TextStyle(fontSize: 16.sp, color: Colors.grey[400]),
+                style: TextStyle(fontSize: 16.sp, color: Colors.white70),
               ),
               SizedBox(height: 4.h),
 
@@ -204,14 +218,15 @@ class _SignUpScreenState extends State<SignUpScreen> {
               TextField(
                 controller: _fullNameController,
                 decoration: InputDecoration(
-                  prefixIcon: Icon(Icons.person, color: Colors.grey),
+                  prefixIcon: Icon(Icons.person, color: Colors.white),
                   labelText: 'Full Name',
-                  labelStyle: TextStyle(color: Colors.grey),
+                  labelStyle: TextStyle(color: Colors.white),
                   filled: true,
-                  fillColor: Colors.white,
+                  fillColor: Colors.blueAccent,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
+                  hintText: 'Enter your full name',
                 ),
               ),
               SizedBox(height: 2.h),
@@ -220,14 +235,15 @@ class _SignUpScreenState extends State<SignUpScreen> {
               TextField(
                 controller: _emailController,
                 decoration: InputDecoration(
-                  prefixIcon: Icon(Icons.email, color: Colors.grey),
+                  prefixIcon: Icon(Icons.email, color: Colors.white),
                   labelText: 'Email',
-                  labelStyle: TextStyle(color: Colors.grey),
+                  labelStyle: TextStyle(color: Colors.white),
                   filled: true,
-                  fillColor: Colors.white,
+                  fillColor: Colors.blueAccent,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
+                  hintText: 'Enter your email',
                 ),
               ),
               SizedBox(height: 2.h),
@@ -237,14 +253,15 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 controller: _phoneController,
                 keyboardType: TextInputType.phone,
                 decoration: InputDecoration(
-                  prefixIcon: Icon(Icons.phone, color: Colors.grey),
+                  prefixIcon: Icon(Icons.phone, color: Colors.white),
                   labelText: 'Phone Number',
-                  labelStyle: TextStyle(color: Colors.grey),
+                  labelStyle: TextStyle(color: Colors.white),
                   filled: true,
-                  fillColor: Colors.white,
+                  fillColor: Colors.blueAccent,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
+                  hintText: '+961XXXXXXXXX',
                 ),
               ),
               SizedBox(height: 2.h),
@@ -253,14 +270,15 @@ class _SignUpScreenState extends State<SignUpScreen> {
               TextField(
                 controller: _plateNumberController,
                 decoration: InputDecoration(
-                  prefixIcon: Icon(Icons.directions_car, color: Colors.grey),
+                  prefixIcon: Icon(Icons.directions_car, color: Colors.white),
                   labelText: 'Plate Number',
-                  labelStyle: TextStyle(color: Colors.grey),
+                  labelStyle: TextStyle(color: Colors.white),
                   filled: true,
-                  fillColor: Colors.white,
+                  fillColor: Colors.blueAccent,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
+                  hintText: 'Enter your plate number',
                 ),
               ),
               SizedBox(height: 2.h),
@@ -270,14 +288,33 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 controller: _passwordController,
                 obscureText: true,
                 decoration: InputDecoration(
-                  prefixIcon: Icon(Icons.lock, color: Colors.grey),
+                  prefixIcon: Icon(Icons.lock, color: Colors.white),
                   labelText: 'Password',
-                  labelStyle: TextStyle(color: Colors.grey),
+                  labelStyle: TextStyle(color: Colors.white),
                   filled: true,
-                  fillColor: Colors.white,
+                  fillColor: Colors.blueAccent,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
+                  hintText: 'Enter your password',
+                ),
+              ),
+              SizedBox(height: 2.h),
+
+              // Confirm Password Input Field
+              TextField(
+                controller: _confirmPasswordController,
+                obscureText: true,
+                decoration: InputDecoration(
+                  prefixIcon: Icon(Icons.lock, color: Colors.white),
+                  labelText: 'Confirm Password',
+                  labelStyle: TextStyle(color: Colors.white),
+                  filled: true,
+                  fillColor: Colors.blueAccent,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  hintText: 'Confirm your password',
                 ),
               ),
               SizedBox(height: 2.h),
@@ -288,7 +325,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 child: Container(
                   padding: EdgeInsets.symmetric(vertical: 2.h, horizontal: 4.w),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF3D5CFF),
+                    color: Colors.blueAccent,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(
@@ -311,7 +348,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   padding: EdgeInsets.only(top: 1.h),
                   child: Text(
                     'File: ${_vehicleRegistrationCardPath!.split('/').last}',
-                    style: TextStyle(fontSize: 14.sp, color: Colors.grey[400]),
+                    style: TextStyle(fontSize: 14.sp, color: Colors.white70),
                     textAlign: TextAlign.center,
                   ),
                 ),
@@ -333,14 +370,17 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       ),
                       textStyle: TextStyle(fontSize: 18.sp),
                     ),
-                    child: const Text('Sign Up'),
+                    child: const Text(
+                      'Sign Up',
+                      style: TextStyle(color: Colors.white),
+                    ),
                   ),
               SizedBox(height: 2.h),
 
               // Admin Review Note
               Text(
                 'Your account will be reviewed by an admin before activation.',
-                style: TextStyle(fontSize: 14.sp, color: Colors.grey[400]),
+                style: TextStyle(fontSize: 14.sp, color: Colors.white70),
                 textAlign: TextAlign.center,
               ),
               SizedBox(height: 2.h),
@@ -348,7 +388,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
               // Login Redirect
               TextButton(
                 onPressed: () {
-                  context.go('/'); // Navigate to the login screen
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(builder: (_) => const LoginScreen()),
+                  );
                 },
                 child: Text(
                   'Already have an account? Login',

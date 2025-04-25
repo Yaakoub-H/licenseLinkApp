@@ -290,10 +290,18 @@ class _PaymentScreenState extends State<PaymentScreen> {
                         const SizedBox(height: 32),
                       ],
 
-                      if (!_isPremium)
+                      if (!_isPremium && _stripeCustomerId != null)
                         Center(
                           child: ElevatedButton.icon(
-                            onPressed: _submitPayment,
+                            onPressed: () async {
+                              // Check if the balance is sufficient before proceeding
+                              if (_cashBalance < 12000) {
+                                // 12000 cents = $120
+                                _showInsufficientBalanceDialog(); // Show popup if balance is insufficient
+                              } else {
+                                await _submitPayment(); // Proceed with payment if balance is sufficient
+                              }
+                            },
                             icon: const Icon(Icons.star),
                             label: const Text('Upgrade to Premium'),
                             style: ElevatedButton.styleFrom(
@@ -333,6 +341,79 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   ),
                 ),
               ),
+    );
+  }
+
+  void _showInsufficientBalanceDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16.0),
+          ),
+          elevation: 0,
+          backgroundColor: Colors.transparent,
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Color(0xFF2A2A4D), // Dark background for the dialog
+              borderRadius: BorderRadius.circular(16.0),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 10,
+                  offset: Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.error_outline, color: Colors.orangeAccent, size: 60),
+                const SizedBox(height: 16),
+                const Text(
+                  'Insufficient Balance',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'You do not have enough funds in your wallet to upgrade to Premium. Please add funds to your account.',
+                  style: TextStyle(fontSize: 16, color: Colors.white70),
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orangeAccent,
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 12,
+                      horizontal: 32,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text(
+                    'Okay',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

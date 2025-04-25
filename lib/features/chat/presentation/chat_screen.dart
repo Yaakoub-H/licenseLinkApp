@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:license_link/firebase_notiifcation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -172,9 +173,33 @@ class _ChatScreenState extends State<ChatScreen> {
 
       _scrollToBottom();
 
+      // Insert message into the database
       await _supabase.from('messages').insert(newMessage);
 
+      // Clear the message input after sending
       _messageController.clear();
+
+      final deviceTokenResponse =
+          await _supabase
+              .from('device_tokens')
+              .select('token')
+              .eq('user_id', widget.participantId)
+              .order('created_at', ascending: false)
+              .limit(1)
+              .single();
+
+      final deviceToken = deviceTokenResponse['token'];
+
+      if (deviceToken != null) {
+        await MyFireBaseCloudMessaging.sendNotificationToUser(
+          deviceToken.toString(),
+          widget.participantId,
+          context,
+          'New Message from ${_currentUserName}',
+          messageText,
+          'message_notification_${DateTime.now().millisecondsSinceEpoch}',
+        );
+      }
     } catch (e) {
       ScaffoldMessenger.of(
         context,

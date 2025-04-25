@@ -18,29 +18,24 @@ final GoRouter appRouter = GoRouter(
     final session = Supabase.instance.client.auth.currentSession;
     final location = state.uri.toString();
 
-    // If no session and not on auth page, go to login
     if (session == null && location != '/' && location != '/signup') {
       return '/';
     }
 
-    // If session exists and we have a decision, redirect
     if (session != null && sessionRedirector.redirect != null) {
       final target = sessionRedirector.redirect!;
       sessionRedirector.clearRedirect(); // Clear after using
       return target;
     }
 
-    // No redirect necessary
     return null;
   },
   routes: [
     GoRoute(
       path: '/',
-      builder: (context, state) {
-        sessionRedirector.evaluateRedirect(); // Check user role
-        return const LoginScreen();
-      },
+      builder: (context, state) => const AdminRedirectHandler(),
     ),
+
     GoRoute(path: '/signup', builder: (context, state) => const SignUpScreen()),
     GoRoute(
       path: '/admin',
@@ -50,3 +45,32 @@ final GoRouter appRouter = GoRouter(
     GoRoute(path: '/search', builder: (context, state) => const SearchScreen()),
   ],
 );
+
+class AdminRedirectHandler extends StatefulWidget {
+  const AdminRedirectHandler({super.key});
+
+  @override
+  State<AdminRedirectHandler> createState() => _AdminRedirectHandlerState();
+}
+
+class _AdminRedirectHandlerState extends State<AdminRedirectHandler> {
+  bool _evaluated = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    // Call evaluateRedirect only once after build
+    if (!_evaluated) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        sessionRedirector.evaluateRedirect();
+      });
+      _evaluated = true;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return const AdminLoginScreen();
+  }
+}
