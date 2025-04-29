@@ -15,8 +15,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // List of screens for each tab
   final List<Widget> _screens = [
-    SearchScreen(), // First tab: Search
-    ConversationsScreen(), // Second tab: Conversations
+    SearchScreen(),
+    ConversationsScreen(),
     SettingsScreen(), // Third tab: Settings
   ];
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:license_link/features/admin/presentation/admin_pending_screen_details.dart';
 import 'package:license_link/features/admin/presentation/all_users_screen.dart';
 import 'package:license_link/features/auth/presentation/login_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -181,7 +182,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => const AllUsersScreen()),
+                MaterialPageRoute(builder: (_) => const AllUsersScreen()),
               );
             },
           ),
@@ -209,74 +210,84 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 itemCount: _pendingUsers.length,
                 itemBuilder: (context, index) {
                   final user = _pendingUsers[index];
-                  return Card(
-                    color: const Color(0xFF2C2C54),
-                    elevation: 4,
-                    margin: EdgeInsets.only(bottom: 2.h),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: 4.w,
-                        vertical: 2.5.h,
+                  return GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => PendingUserDetailsScreen(user: user),
+                        ),
+                      );
+                    },
+                    child: Card(
+                      color: const Color(0xFF2C2C54),
+                      elevation: 4,
+                      margin: EdgeInsets.only(bottom: 2.h),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            user['full_name'] ?? 'No Name',
-                            style: TextStyle(
-                              fontSize: 18.sp,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 4.w,
+                          vertical: 2.5.h,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              user['full_name'] ?? 'No Name',
+                              style: TextStyle(
+                                fontSize: 18.sp,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
                             ),
-                          ),
-                          SizedBox(height: 1.h),
-                          Text(
-                            '📧 ${user['email']}',
-                            style: TextStyle(color: Colors.white70),
-                          ),
-                          Text(
-                            '📞 ${user['phone']}',
-                            style: TextStyle(color: Colors.white70),
-                          ),
-                          Text(
-                            '🚗 ${user['plate_number']}',
-                            style: TextStyle(color: Colors.white70),
-                          ),
-                          SizedBox(height: 2.h),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              ElevatedButton.icon(
-                                onPressed: () => _approveUser(user['id']),
-                                icon: const Icon(Icons.check),
-                                label: const Text('Approve'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.green,
-                                  foregroundColor: Colors.white,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
+                            SizedBox(height: 1.h),
+                            Text(
+                              '📧 ${user['email']}',
+                              style: TextStyle(color: Colors.white70),
+                            ),
+                            Text(
+                              '📞 ${user['phone']}',
+                              style: TextStyle(color: Colors.white70),
+                            ),
+                            Text(
+                              '🚗 ${user['plate_number']}',
+                              style: TextStyle(color: Colors.white70),
+                            ),
+                            SizedBox(height: 2.h),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                ElevatedButton.icon(
+                                  onPressed: () => _approveUser(user['id']),
+                                  icon: const Icon(Icons.check),
+                                  label: const Text('Approve'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.green,
+                                    foregroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
                                   ),
                                 ),
-                              ),
-                              SizedBox(width: 3.w),
-                              ElevatedButton.icon(
-                                onPressed: () => _rejectUser(user['id']),
-                                icon: const Icon(Icons.close),
-                                label: const Text('Reject'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.redAccent,
-                                  foregroundColor: Colors.white,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
+                                SizedBox(width: 3.w),
+                                ElevatedButton.icon(
+                                  onPressed: () => _rejectUser(user['id']),
+                                  icon: const Icon(Icons.close),
+                                  label: const Text('Reject'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.redAccent,
+                                    foregroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ],
-                          ),
-                        ],
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   );

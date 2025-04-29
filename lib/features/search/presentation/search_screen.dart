@@ -18,8 +18,8 @@ class _SearchScreenState extends State<SearchScreen> {
   final SupabaseClient _supabase = Supabase.instance.client;
   String? _fullName;
   bool _isLoadingUser = true;
-  String? _currentUserId; // Store the user's ID from the database
-  String? _userPlateNumber; // To store the logged-in user's plate number
+  String? _currentUserId;
+  String? _userPlateNumber;
   int _searchCountToday = 0;
 
   bool _isPremium = false;
@@ -71,20 +71,24 @@ class _SearchScreenState extends State<SearchScreen> {
 
   Future<void> _checkNonPremiumSearchLimit() async {
     try {
-      final response =
-          await _supabase
-              .from('non_premium_search_logs')
-              .select('count')
-              .eq('user_id', _currentUserId!)
-              .gte(
-                'search_date',
-                DateTime.now().subtract(Duration(days: 1)).toIso8601String(),
-              )
-              .single();
+      final now = DateTime.now();
+      final startOfDay = DateTime(now.year, now.month, now.day);
 
-      setState(() {
-        _searchCountToday = response['count'] ?? 0;
-      });
+      final response = await _supabase
+          .from('non_premium_search_logs')
+          .select('id')
+          .eq('user_id', _currentUserId!)
+          .gte('search_date', startOfDay.toIso8601String());
+
+      if (response != null && response is List) {
+        setState(() {
+          _searchCountToday = response.length;
+        });
+      } else {
+        setState(() {
+          _searchCountToday = 0;
+        });
+      }
     } catch (e) {
       print('Error checking search limit: $e');
     }

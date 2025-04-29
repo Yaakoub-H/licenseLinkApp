@@ -39,7 +39,7 @@ class WelcomePageTwo extends StatelessWidget {
 
               // Title
               Text(
-                'Your Car Service at Your Fingertips!',
+                'Welcome to Mar2ne - Your Car Service App!',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 21.sp,
@@ -53,14 +53,19 @@ class WelcomePageTwo extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.car_repair, color: Colors.white, size: 20.sp),
+                  Icon(
+                    Icons.directions_car_filled,
+                    color: Colors.white,
+                    size: 20.sp,
+                  ),
                   SizedBox(width: 2.w),
                   Text(
-                    'Trusted Car Mechanics',
+                    'Car Plate Lookup Made Easy',
                     style: TextStyle(fontSize: 16.sp, color: Colors.white),
                   ),
                 ],
               ),
+
               SizedBox(height: 2.h),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,

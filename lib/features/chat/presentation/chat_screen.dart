@@ -17,30 +17,42 @@ class ChatScreen extends StatefulWidget {
   _ChatScreenState createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends State<ChatScreen> {
+class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   final SupabaseClient _supabase = Supabase.instance.client;
   final TextEditingController _messageController = TextEditingController();
   final List<Map<String, dynamic>> _messages = [];
   late final RealtimeChannel _channel;
   final ScrollController _scrollController = ScrollController();
-  String? _currentUserId; // ID of the current logged-in user
-  String? _currentUserName; // Name of the current logged-in user
+  String? _currentUserId;
+  String? _currentUserName;
   bool? _isPremium;
   bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _fetchCurrentUserId().then((_) => _fetchMessages());
     _subscribeToMessages();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _channel.unsubscribe();
     _messageController.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      print('App resumed – refreshing chat.');
+      _fetchMessages();
+      _channel.unsubscribe();
+      _subscribeToMessages();
+    }
   }
 
   Future<void> _fetchCurrentUserId() async {
@@ -173,10 +185,8 @@ class _ChatScreenState extends State<ChatScreen> {
 
       _scrollToBottom();
 
-      // Insert message into the database
       await _supabase.from('messages').insert(newMessage);
 
-      // Clear the message input after sending
       _messageController.clear();
 
       final deviceTokenResponse =

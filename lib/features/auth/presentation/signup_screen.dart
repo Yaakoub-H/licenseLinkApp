@@ -27,7 +27,21 @@ class _SignUpScreenState extends State<SignUpScreen> {
       TextEditingController();
   String? _vehicleRegistrationCardPath; // Path to the uploaded file
   bool _isLoading = false;
+  String? _selectedPrefix = 'B';
+  final TextEditingController _plateController = TextEditingController();
 
+  String? validatePlateNumber(String prefix, String number) {
+    final plateRegex = RegExp(r'^[0-9]{1,6}$'); // Allow 1–6 digit numbers
+    if (!_platePrefixes.contains(prefix)) {
+      return 'Invalid plate prefix';
+    }
+    if (!plateRegex.hasMatch(number)) {
+      return 'Plate number must be 1 to 6 digits';
+    }
+    return null; // Valid
+  }
+
+  final List<String> _platePrefixes = ['B', 'M', 'N', 'Z', 'K', 'J'];
   @override
   void dispose() {
     _emailController.dispose();
@@ -117,7 +131,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
         _passwordController.text.isEmpty ||
         _phoneController.text.isEmpty ||
         _fullNameController.text.isEmpty ||
-        _plateNumberController.text.isEmpty ||
+        _plateController.text.isEmpty ||
         _vehicleRegistrationCardPath == null ||
         _passwordController.text != _confirmPasswordController.text ||
         !_phoneController.text.startsWith('+961')) {
@@ -131,12 +145,22 @@ class _SignUpScreenState extends State<SignUpScreen> {
       return;
     }
 
+    final plateNumber = _plateController.text.trim();
+    final prefix = _selectedPrefix ?? 'B';
+    final plateValidationError = validatePlateNumber(prefix, plateNumber);
+    if (plateValidationError != null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(plateValidationError)));
+      return;
+    }
+    final fullPlate = '$prefix$plateNumber';
+
     setState(() {
       _isLoading = true;
     });
 
     try {
-      // Upload the vehicle registration card
       final publicUrl = await _uploadVehicleRegistrationCard(
         _emailController.text,
       );
@@ -154,9 +178,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
         _emailController.text,
         _phoneController.text,
         _fullNameController.text,
-        _plateNumberController.text,
+        fullPlate,
         publicUrl,
-        hashedPassword, // Store this hashed password
+        hashedPassword,
       );
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -267,21 +291,54 @@ class _SignUpScreenState extends State<SignUpScreen> {
               SizedBox(height: 2.h),
 
               // Plate Number Input Field
-              TextField(
-                controller: _plateNumberController,
-                decoration: InputDecoration(
-                  prefixIcon: Icon(Icons.directions_car, color: Colors.white),
-                  labelText: 'Plate Number',
-                  labelStyle: TextStyle(color: Colors.white),
-                  filled: true,
-                  fillColor: Colors.blueAccent,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
+              Row(
+                children: [
+                  Container(
+                    padding: EdgeInsets.symmetric(horizontal: 3.w),
+                    decoration: BoxDecoration(
+                      color: Colors.blueAccent,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: _selectedPrefix,
+                        iconEnabledColor: Colors.white,
+                        dropdownColor: Colors.blueAccent,
+                        style: const TextStyle(color: Colors.white),
+                        items:
+                            _platePrefixes.map((String prefix) {
+                              return DropdownMenuItem<String>(
+                                value: prefix,
+                                child: Text(prefix),
+                              );
+                            }).toList(),
+                        onChanged: (value) {
+                          setState(() => _selectedPrefix = value);
+                        },
+                      ),
+                    ),
                   ),
-                  hintText: 'Enter your plate number',
-                ),
+                  SizedBox(width: 2.w),
+                  Expanded(
+                    child: TextField(
+                      controller: _plateController,
+                      keyboardType: TextInputType.number,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        labelText: 'Plate Number',
+                        labelStyle: const TextStyle(color: Colors.white),
+                        filled: true,
+                        fillColor: Colors.blueAccent,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              SizedBox(height: 2.h),
+              SizedBox(height: 4.w),
 
               // Password Input Field
               TextField(
