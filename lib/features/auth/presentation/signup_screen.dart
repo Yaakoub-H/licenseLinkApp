@@ -145,6 +145,15 @@ class _SignUpScreenState extends State<SignUpScreen> {
       return;
     }
 
+    if (_passwordController.text.length < 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Password must be at least 6 characters long.'),
+        ),
+      );
+      return;
+    }
+
     final plateNumber = _plateController.text.trim();
     final prefix = _selectedPrefix ?? 'B';
     final plateValidationError = validatePlateNumber(prefix, plateNumber);

@@ -294,14 +294,13 @@ class _PaymentScreenState extends State<PaymentScreen> {
                         Center(
                           child: ElevatedButton.icon(
                             onPressed: () async {
-                              // Check if the balance is sufficient before proceeding
                               if (_cashBalance < 12000) {
-                                // 12000 cents = $120
-                                _showInsufficientBalanceDialog(); // Show popup if balance is insufficient
+                                _showInsufficientBalanceDialog();
                               } else {
-                                await _submitPayment(); // Proceed with payment if balance is sufficient
+                                _showPaymentConfirmationDialog(); // ✅ Show popup confirmation
                               }
                             },
+
                             icon: const Icon(Icons.star),
                             label: const Text('Upgrade to Premium'),
                             style: ElevatedButton.styleFrom(
@@ -341,6 +340,47 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   ),
                 ),
               ),
+    );
+  }
+
+  void _showPaymentConfirmationDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF2A2A4D),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Text(
+            'Confirm Upgrade',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          ),
+          content: const Text(
+            'Upgrading to premium will cost \$120. Do you want to proceed?',
+            style: TextStyle(color: Colors.white70),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(color: Colors.white70),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.of(context).pop(); // Close dialog
+                await _submitPayment(); // Proceed with payment
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF3D5CFF),
+              ),
+              child: const Text('Confirm'),
+            ),
+          ],
+        );
+      },
     );
   }
 
